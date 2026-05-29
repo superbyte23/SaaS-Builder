@@ -1,0 +1,2 @@
+- [NexusPOS DB schema quirks](nexuspos-db-schema.md) — enum columns use non-standard names; drizzle-kit push issues with plan enum; all tables exist so skip push.
+- [NexusPOS auth flow](nexuspos-auth.md) — scrypt hash format, session store, demo credentials, role enum values.

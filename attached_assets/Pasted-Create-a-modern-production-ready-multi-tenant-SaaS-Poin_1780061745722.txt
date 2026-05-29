@@ -1,0 +1,294 @@
+Create a modern, production-ready multi-tenant SaaS Point of Sale (POS) platform for web and mobile-responsive use. The system must support any business type including retail stores, groceries, pharmacies, hardware stores, restaurants, cafés, boutiques, convenience stores, salons, service businesses, and wholesalers.
+
+The application must be enterprise-grade, modular, scalable, and suitable for commercial deployment.
+
+Core Requirements
+Architecture
+SaaS multi-tenant architecture
+Each business has isolated data
+Subscription-based system
+Cloud-ready
+Role-based access control (RBAC)
+API-first architecture
+Responsive UI for desktop, tablet, and mobile
+Offline-capable POS mode with sync when internet reconnects
+Fast transaction performance
+Audit logs for all critical operations
+Authentication & Organization
+Authentication
+Email/password login
+Social login (Google, Facebook optional)
+2FA authentication
+Password reset
+Session management
+Device tracking
+Organization Management
+Create/store multiple branches
+Multi-location support
+Store branding
+Custom receipt header/footer
+Tax configuration per branch
+Currency settings
+Timezone settings
+Language support
+User Roles & Permissions
+
+Include customizable permissions for:
+
+Super Admin
+Business Owner
+Branch Manager
+Cashier
+Inventory Staff
+Accountant
+Auditor
+
+Permission examples:
+
+Manage products
+View reports
+Void transactions
+Apply discounts
+Access financial reports
+Manage employees
+Edit inventory
+Configure system settings
+POS Module
+Sales Features
+Fast cashier interface
+Barcode scanning support
+Search products instantly
+Product variants
+SKU support
+Category management
+Favorites / quick-access buttons
+Cart management
+Hold/resume transactions
+Split payments
+Split bills
+Park orders
+Refunds & returns
+Exchanges
+Partial payments
+Layaway support
+Quotes/estimates
+Draft orders
+Custom notes per item
+Discount system
+Coupon system
+Promotions engine
+Loyalty rewards
+Gift cards
+Tips support
+Cash drawer management
+Payment Methods
+Cash
+Credit/debit card
+Bank transfer
+Mobile wallets
+QR payments
+Store credit
+Mixed payments
+Receipt System
+Printable receipts
+Email receipts
+SMS receipts
+Thermal printer support
+PDF invoice generation
+QR code receipts
+Inventory Management
+Inventory Features
+Real-time stock updates
+Stock movements
+Inventory adjustment
+Stock transfer between branches
+Reorder alerts
+Low-stock notifications
+Batch tracking
+Serial number tracking
+Expiration date tracking
+Purchase receiving
+Supplier returns
+Damaged inventory logging
+Multiple warehouses
+Product Management
+Simple products
+Variable products
+Bundles/kits
+Composite products
+Services
+Digital products
+Product images
+Product tags
+Units of measurement
+Multiple pricing tiers
+Wholesale pricing
+Dynamic pricing
+Tax-inclusive/exclusive pricing
+Purchasing Module
+Supplier management
+Purchase orders
+Goods receiving
+Supplier invoices
+Accounts payable
+Supplier payment tracking
+Purchase history
+Cost tracking
+CRM & Customer Management
+Customer Features
+Customer profiles
+Purchase history
+Loyalty points
+Customer groups
+Credit limits
+Customer balances
+Notes & tags
+Birthday reminders
+Marketing consent
+SMS/email marketing integration
+Employee Management
+Employee profiles
+Attendance tracking
+Shift scheduling
+Cashier shift management
+Time clock
+Performance tracking
+Sales commissions
+Accounting & Finance
+Financial Features
+Sales reports
+Expense tracking
+Profit/loss reports
+Tax reports
+Cash flow reports
+Daily sales reconciliation
+End-of-day closing
+Journal entries
+Accounts receivable
+Accounts payable
+Export to accounting software
+Reporting & Analytics
+Dashboard
+Real-time sales dashboard
+Revenue analytics
+Top-selling products
+Inventory valuation
+Profit margins
+Customer analytics
+Sales trends
+Branch comparison
+Employee performance
+Forecasting charts
+Exporting
+PDF export
+Excel export
+CSV export
+Scheduled reports
+Restaurant Mode (Optional Module)
+Table management
+Kitchen display system (KDS)
+Order queue
+Menu builder
+Ingredient tracking
+Recipe costing
+Dining status tracking
+E-commerce Integration
+Online ordering
+Website integration
+Marketplace integration
+Inventory sync
+Delivery management
+Notifications
+SMS notifications
+Email notifications
+Push notifications
+Low stock alerts
+Daily sales summary
+SaaS Billing System
+Subscription Features
+Free trial
+Subscription plans
+Monthly/yearly billing
+Feature-based plans
+Usage limits
+Online payment gateway integration
+Invoice generation
+Subscription renewal reminders
+Admin Panel
+Super Admin Features
+Tenant management
+Subscription management
+Global analytics
+Revenue tracking
+System monitoring
+Feature toggles
+Platform announcements
+Support ticket management
+Technical Requirements
+Frontend
+Modern clean UI
+Dark/light mode
+Fast loading
+Mobile-first design
+Accessibility compliant
+Backend
+REST API
+WebSocket support for real-time updates
+Queue system
+Background jobs
+Caching
+File storage system
+Security
+SQL injection protection
+XSS protection
+CSRF protection
+Encryption for sensitive data
+Rate limiting
+Secure API authentication
+Activity logs
+Integrations
+Barcode scanners
+Receipt printers
+Cash drawers
+QR scanners
+Accounting software
+SMS gateways
+Email providers
+Payment gateways
+AI Features
+Smart inventory forecasting
+Sales predictions
+Customer behavior analytics
+Automated reorder suggestions
+AI-powered reports
+Deliverables
+
+Generate:
+
+Full database schema
+ERD
+Complete backend APIs
+Frontend UI/UX
+Dashboard pages
+POS interface
+Authentication flows
+Role permission system
+Sample demo data
+Responsive layouts
+Production-ready codebase
+Deployment configuration
+Docker support
+API documentation
+UI/UX Style
+Modern SaaS dashboard aesthetic
+Clean typography
+Minimalist but professional
+Smooth animations
+Enterprise-quality design
+Similar polish level to Shopify POS, Square POS, Lightspeed, or Toast POS
+Important
+The platform must be modular so businesses can enable or disable features.
+Design for scalability to support thousands of tenants.
+Prioritize performance and usability for cashiers during peak transactions.
+Ensure extensibility for future modules/plugins.
+Use best practices for SaaS architecture and security.
