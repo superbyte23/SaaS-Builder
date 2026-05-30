@@ -23,6 +23,10 @@ export interface Product {
   categoryId?: number | null;
   /** @nullable */
   categoryName?: string | null;
+  /** @nullable */
+  supplierId?: number | null;
+  /** @nullable */
+  supplierName?: string | null;
   unit?: string;
   /** @nullable */
   taxRate?: number | null;

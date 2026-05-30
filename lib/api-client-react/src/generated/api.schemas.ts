@@ -275,6 +275,10 @@ export interface Product {
   categoryId?: number | null;
   /** @nullable */
   categoryName?: string | null;
+  /** @nullable */
+  supplierId?: number | null;
+  /** @nullable */
+  supplierName?: string | null;
   unit?: string;
   /** @nullable */
   taxRate?: number | null;
@@ -297,6 +301,7 @@ export interface ProductInput {
   price: number;
   costPrice?: number;
   categoryId?: number;
+  supplierId?: number;
   unit?: string;
   taxRate?: number;
   image?: string;
@@ -312,6 +317,7 @@ export interface ProductUpdate {
   price?: number;
   costPrice?: number;
   categoryId?: number;
+  supplierId?: number;
   unit?: string;
   taxRate?: number;
   image?: string;

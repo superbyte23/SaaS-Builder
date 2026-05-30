@@ -14,6 +14,7 @@ export interface ProductUpdate {
   price?: number;
   costPrice?: number;
   categoryId?: number;
+  supplierId?: number;
   unit?: string;
   taxRate?: number;
   image?: string;

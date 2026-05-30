@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
 import { categoriesTable } from "./categories";
+import { suppliersTable } from "./suppliers";
 
 export const productStatusEnum = pgEnum("product_status", ["active", "inactive", "discontinued"]);
 
@@ -10,6 +11,7 @@ export const productsTable = pgTable("products", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id").notNull().references(() => organizationsTable.id),
   categoryId: integer("category_id").references(() => categoriesTable.id),
+  supplierId: integer("supplier_id").references(() => suppliersTable.id),
   name: text("name").notNull(),
   description: text("description"),
   sku: text("sku"),

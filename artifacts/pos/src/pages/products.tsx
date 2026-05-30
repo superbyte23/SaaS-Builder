@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { useListProducts, useListCategories, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@workspace/api-client-react";
+import { useListProducts, useListCategories, useListSuppliers, useCreateProduct, useUpdateProduct, useDeleteProduct } from "@workspace/api-client-react";
 import type { Product } from "@workspace/api-client-react/src/generated/api.schemas";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,9 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
-type ProductForm = { name: string; price: string; costPrice: string; sku: string; barcode: string; categoryId: string; unit: string; taxRate: string; reorderPoint: string; description: string; trackInventory: boolean; };
+type ProductForm = { name: string; price: string; costPrice: string; sku: string; barcode: string; categoryId: string; supplierId: string; unit: string; taxRate: string; reorderPoint: string; description: string; trackInventory: boolean; };
 
-const EMPTY_FORM: ProductForm = { name: "", price: "", costPrice: "", sku: "", barcode: "", categoryId: "none", unit: "piece", taxRate: "0", reorderPoint: "", description: "", trackInventory: true };
+const EMPTY_FORM: ProductForm = { name: "", price: "", costPrice: "", sku: "", barcode: "", categoryId: "none", supplierId: "none", unit: "piece", taxRate: "0", reorderPoint: "", description: "", trackInventory: true };
 
 export default function Products() {
   const [search, setSearch] = useState("");
@@ -30,6 +30,7 @@ export default function Products() {
 
   const { data: products, isLoading } = useListProducts({ search: search || undefined });
   const { data: categories } = useListCategories();
+  const { data: suppliers } = useListSuppliers();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -43,6 +44,7 @@ export default function Products() {
       name: p.name, price: String(p.price), costPrice: String(p.costPrice || ""),
       sku: p.sku || "", barcode: p.barcode || "",
       categoryId: p.categoryId ? String(p.categoryId) : "none",
+      supplierId: p.supplierId ? String(p.supplierId) : "none",
       unit: p.unit || "piece", taxRate: String(p.taxRate || 0),
       reorderPoint: p.reorderPoint ? String(p.reorderPoint) : "",
       description: p.description || "", trackInventory: p.trackInventory !== false,
@@ -57,6 +59,7 @@ export default function Products() {
       costPrice: form.costPrice ? parseFloat(form.costPrice) : undefined,
       sku: form.sku || undefined, barcode: form.barcode || undefined,
       categoryId: form.categoryId !== "none" ? parseInt(form.categoryId) : undefined,
+      supplierId: form.supplierId !== "none" ? parseInt(form.supplierId) : undefined,
       unit: form.unit, taxRate: parseFloat(form.taxRate) || 0,
       reorderPoint: form.reorderPoint ? parseInt(form.reorderPoint) : undefined,
       description: form.description || undefined,
@@ -103,6 +106,7 @@ export default function Products() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead><TableHead>SKU</TableHead><TableHead>Category</TableHead>
+                      <TableHead>Supplier</TableHead>
                       <TableHead className="text-right">Price</TableHead><TableHead className="text-right">Cost</TableHead>
                       <TableHead className="text-right">Stock</TableHead><TableHead>Status</TableHead>
                       <TableHead className="w-24 text-right">Actions</TableHead>
@@ -113,9 +117,10 @@ export default function Products() {
                       <TableRow key={p.id}>
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell className="text-muted-foreground font-mono text-xs">{p.sku || "-"}</TableCell>
-                        <TableCell>{p.categoryName || "Uncategorized"}</TableCell>
-                        <TableCell className="text-right font-mono">${p.price.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-mono text-muted-foreground">{p.costPrice ? `$${p.costPrice.toFixed(2)}` : "-"}</TableCell>
+                        <TableCell>{p.categoryName || "—"}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{p.supplierName || "—"}</TableCell>
+                        <TableCell className="text-right font-mono">₱{p.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">{p.costPrice ? `₱${p.costPrice.toFixed(2)}` : "-"}</TableCell>
                         <TableCell className="text-right font-mono">{p.stockQuantity || 0}</TableCell>
                         <TableCell><Badge variant={p.status === "active" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
                         <TableCell className="text-right">
@@ -149,6 +154,15 @@ export default function Products() {
                   <SelectContent>
                     <SelectItem value="none">No Category</SelectItem>
                     {categories?.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5"><Label>Supplier</Label>
+                <Select value={form.supplierId} onValueChange={(v) => set("supplierId", v)}>
+                  <SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Supplier</SelectItem>
+                    {suppliers?.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

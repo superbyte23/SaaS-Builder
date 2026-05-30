@@ -1176,6 +1176,8 @@ components:
         costPrice: { type: ["number", "null"] }
         categoryId: { type: ["integer", "null"] }
         categoryName: { type: ["string", "null"] }
+        supplierId: { type: ["integer", "null"] }
+        supplierName: { type: ["string", "null"] }
         unit: { type: string }
         taxRate: { type: ["number", "null"] }
         image: { type: ["string", "null"] }
@@ -1196,6 +1198,7 @@ components:
         price: { type: number }
         costPrice: { type: number }
         categoryId: { type: integer }
+        supplierId: { type: integer }
         unit: { type: string }
         taxRate: { type: number }
         image: { type: string }
@@ -1212,6 +1215,7 @@ components:
         price: { type: number }
         costPrice: { type: number }
         categoryId: { type: integer }
+        supplierId: { type: integer }
         unit: { type: string }
         taxRate: { type: number }
         image: { type: string }
