@@ -1,144 +1,172 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { useListProducts, useListCategories, useCreateOrder } from "@workspace/api-client-react";
-import type { Product, OrderItemInput } from "@workspace/api-client-react/src/generated/api.schemas";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import {
+  useListProducts, useListCategories, useListCustomers,
+  useCreateOrder, useCompleteOrder,
+} from "@workspace/api-client-react";
+import type { Product, PaymentInputPaymentMethod } from "@workspace/api-client-react/src/generated/api.schemas";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Plus, Minus, Trash2, CreditCard, Banknote } from "lucide-react";
+import { Search, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, User, Tag, X, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth";
 
-type CartItem = {
-  product: Product;
-  quantity: number;
-};
+type CartItem = { product: Product; quantity: number; discount: number };
+
+const PAYMENT_METHODS = [
+  { value: "cash", label: "Cash", icon: Banknote },
+  { value: "card", label: "Card", icon: CreditCard },
+  { value: "mobile_wallet", label: "Mobile Wallet", icon: Smartphone },
+  { value: "bank_transfer", label: "Bank Transfer", icon: CreditCard },
+];
 
 export default function POS() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [orderDiscount, setOrderDiscount] = useState(0);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>(undefined);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentInputPaymentMethod>("cash");
+  const [receivedAmount, setReceivedAmount] = useState("");
+  const [completedOrder, setCompletedOrder] = useState<any>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: categories } = useListCategories();
-  const { data: products, isLoading: isLoadingProducts } = useListProducts({ 
-    search: search || undefined, 
-    categoryId 
+  const { data: products, isLoading: isLoadingProducts } = useListProducts({
+    search: search || undefined,
+    categoryId,
   });
-
+  const { data: customers } = useListCustomers({});
   const createOrder = useCreateOrder();
+  const completeOrder = useCompleteOrder();
+
+  const TAX_RATE = 0.08;
 
   const addToCart = (product: Product) => {
-    setCart((current) => {
-      const existing = current.find((item) => item.product.id === product.id);
-      if (existing) {
-        return current.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...current, { product, quantity: 1 }];
+    setCart((cur) => {
+      const existing = cur.find((i) => i.product.id === product.id);
+      if (existing) return cur.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+      return [...cur, { product, quantity: 1, discount: 0 }];
     });
   };
 
-  const updateQuantity = (productId: number, delta: number) => {
-    setCart((current) =>
-      current
-        .map((item) => {
-          if (item.product.id === productId) {
-            return { ...item, quantity: Math.max(0, item.quantity + delta) };
-          }
-          return item;
-        })
-        .filter((item) => item.quantity > 0)
-    );
-  };
+  const updateQty = (id: number, delta: number) =>
+    setCart((cur) => cur.map((i) => i.product.id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i).filter(i => i.quantity > 0));
 
-  const clearCart = () => setCart([]);
+  const removeItem = (id: number) => setCart((cur) => cur.filter((i) => i.product.id !== id));
 
-  const subtotal = useMemo(() => {
-    return cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
-  }, [cart]);
+  const updateItemDiscount = (id: number, val: number) =>
+    setCart((cur) => cur.map((i) => i.product.id === id ? { ...i, discount: Math.max(0, val) } : i));
 
-  const tax = subtotal * 0.1; // Default 10% tax for stub
-  const total = subtotal + tax;
+  const clearCart = () => { setCart([]); setOrderDiscount(0); setSelectedCustomerId(undefined); };
 
-  const handleCharge = () => {
+  const itemsSubtotal = useMemo(() =>
+    cart.reduce((s, i) => s + (i.product.price * i.quantity - i.discount), 0), [cart]);
+  const discountedSubtotal = Math.max(0, itemsSubtotal - orderDiscount);
+  const taxAmount = discountedSubtotal * TAX_RATE;
+  const total = discountedSubtotal + taxAmount;
+  const receivedNum = parseFloat(receivedAmount) || 0;
+  const change = Math.max(0, receivedNum - total);
+
+  const handleOpenCheckout = () => {
     if (cart.length === 0) return;
-
-    const items: OrderItemInput[] = cart.map(item => ({
-      productId: item.product.id,
-      quantity: item.quantity,
-      unitPrice: item.product.price,
-    }));
-
-    createOrder.mutate(
-      { data: { branchId: 1, items } }, // Mock branchId 1 for now
-      {
-        onSuccess: () => {
-          toast({ title: "Order Completed", description: `Successfully charged $${total.toFixed(2)}` });
-          clearCart();
-        },
-        onError: () => {
-          toast({ variant: "destructive", title: "Error", description: "Failed to process order" });
-        }
-      }
-    );
+    setReceivedAmount(total.toFixed(2));
+    setCheckoutOpen(true);
   };
+
+  const handleCharge = async () => {
+    if (cart.length === 0) return;
+    if (paymentMethod === "cash" && receivedNum < total) {
+      toast({ variant: "destructive", title: "Insufficient Amount", description: "Received amount is less than total." });
+      return;
+    }
+    try {
+      const items = cart.map((i) => ({
+        productId: i.product.id,
+        quantity: i.quantity,
+        unitPrice: i.product.price,
+        discount: i.discount,
+      }));
+      const order = await new Promise<any>((resolve, reject) => {
+        createOrder.mutate(
+          { data: { branchId: user?.branchId || 1, customerId: selectedCustomerId, items, discountAmount: orderDiscount } },
+          { onSuccess: resolve, onError: reject }
+        );
+      });
+      const completed = await new Promise<any>((resolve, reject) => {
+        completeOrder.mutate(
+          { id: order.id, data: { paymentMethod, amountPaid: receivedNum || total } },
+          { onSuccess: resolve, onError: reject }
+        );
+      });
+      setCompletedOrder(completed);
+      setCheckoutOpen(false);
+      setReceiptOpen(true);
+      clearCart();
+    } catch {
+      toast({ variant: "destructive", title: "Transaction Failed", description: "Could not process the payment." });
+    }
+  };
+
+  const selectedCustomer = customers?.find((c) => c.id === selectedCustomerId);
 
   return (
     <DashboardLayout>
-      <div className="flex h-[calc(100vh-4rem)] gap-6 -m-4 p-4">
-        {/* Left Side: Products */}
-        <div className="flex-1 flex flex-col gap-4 min-w-0">
-          <div className="flex items-center gap-4">
+      <div className="flex h-[calc(100vh-4rem)] gap-4 -m-4 p-4">
+        {/* Products panel */}
+        <div className="flex-1 flex flex-col gap-3 min-w-0">
+          <div className="flex items-center gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search products..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 bg-card border-none shadow-sm"
-              />
+              <Input placeholder="Search products or scan barcode…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
           </div>
-          
           {categories && (
             <Tabs value={categoryId?.toString() || "all"} onValueChange={(v) => setCategoryId(v === "all" ? undefined : Number(v))}>
-              <TabsList className="w-full justify-start overflow-x-auto bg-transparent p-0 gap-2 h-auto">
-                <TabsTrigger value="all" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-4 py-2 bg-card border shadow-sm">All</TabsTrigger>
+              <TabsList className="w-full justify-start overflow-x-auto bg-transparent p-0 gap-1.5 h-auto flex-wrap">
+                <TabsTrigger value="all" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-3 py-1.5 text-sm bg-card border shadow-sm">All</TabsTrigger>
                 {categories.map((c) => (
-                  <TabsTrigger key={c.id} value={c.id.toString()} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-4 py-2 bg-card border shadow-sm">
-                    {c.name}
+                  <TabsTrigger key={c.id} value={c.id.toString()} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full px-3 py-1.5 text-sm bg-card border shadow-sm">
+                    {c.icon && <span className="mr-1">{c.icon}</span>}{c.name}
                   </TabsTrigger>
                 ))}
               </TabsList>
             </Tabs>
           )}
-
           <ScrollArea className="flex-1">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-4">
               {isLoadingProducts ? (
-                <div className="col-span-full py-10 text-center text-muted-foreground">Loading products...</div>
+                <div className="col-span-full py-10 text-center text-muted-foreground">Loading products…</div>
               ) : products?.length === 0 ? (
                 <div className="col-span-full py-10 text-center text-muted-foreground">No products found.</div>
               ) : (
                 products?.map((product) => (
-                  <Card key={product.id} className="cursor-pointer hover:border-primary transition-colors overflow-hidden flex flex-col h-full shadow-sm" onClick={() => addToCart(product)}>
-                    <div className="h-32 bg-muted/50 flex items-center justify-center p-4">
-                      {product.image ? (
-                        <img src={product.image} alt={product.name} className="h-full object-contain mix-blend-multiply" />
-                      ) : (
-                        <div className="text-4xl opacity-20 font-bold tracking-tighter">IMG</div>
-                      )}
+                  <Card key={product.id} className="cursor-pointer hover:border-primary hover:shadow-md transition-all overflow-hidden flex flex-col" onClick={() => addToCart(product)}>
+                    <div className="h-28 bg-muted/30 flex items-center justify-center">
+                      {product.image ? <img src={product.image} alt={product.name} className="h-full object-contain" /> : <div className="text-3xl opacity-20 font-bold">IMG</div>}
                     </div>
-                    <CardContent className="p-4 flex-1 flex flex-col justify-between">
+                    <CardContent className="p-3 flex-1 flex flex-col justify-between gap-1">
                       <div>
-                        <div className="text-xs text-muted-foreground mb-1">{product.categoryName || 'Uncategorized'}</div>
+                        <div className="text-xs text-muted-foreground">{product.categoryName || "Uncategorized"}</div>
                         <h3 className="font-semibold text-sm leading-tight line-clamp-2">{product.name}</h3>
                       </div>
-                      <div className="mt-2 font-mono text-primary font-bold">
-                        ${product.price.toFixed(2)}
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="font-mono text-primary font-bold text-sm">${product.price.toFixed(2)}</span>
+                        {product.stockQuantity != null && (
+                          <span className={`text-xs font-mono ${product.stockQuantity <= (product.reorderPoint || 0) ? "text-destructive" : "text-muted-foreground"}`}>
+                            {product.stockQuantity} left
+                          </span>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -148,104 +176,224 @@ export default function POS() {
           </ScrollArea>
         </div>
 
-        {/* Right Side: Cart */}
-        <Card className="w-96 flex flex-col shadow-lg border-none bg-card/50 backdrop-blur">
-          <CardHeader className="border-b px-4 py-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Current Order</CardTitle>
-            <Button variant="ghost" size="icon" onClick={clearCart} disabled={cart.length === 0}>
+        {/* Cart panel */}
+        <Card className="w-[360px] flex flex-col shadow-lg">
+          <CardHeader className="border-b px-4 py-3 flex flex-row items-center justify-between shrink-0">
+            <CardTitle className="text-base">Current Order</CardTitle>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearCart} disabled={cart.length === 0}>
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </CardHeader>
-          
-          <ScrollArea className="flex-1 p-4">
+
+          {/* Customer selector */}
+          <div className="px-4 pt-3 pb-2 border-b">
+            <Select value={selectedCustomerId?.toString() || "none"} onValueChange={(v) => setSelectedCustomerId(v === "none" ? undefined : Number(v))}>
+              <SelectTrigger className="h-8 text-sm">
+                <User className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Select customer (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Walk-in Customer</SelectItem>
+                {customers?.map((c) => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <ScrollArea className="flex-1 px-4 py-3">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-4 py-20">
-                <ShoppingCartIcon className="h-12 w-12 opacity-20" />
-                <p>Cart is empty</p>
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-16 gap-2">
+                <div className="text-5xl opacity-20">🛒</div>
+                <p className="text-sm">Tap products to add them</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {cart.map((item) => (
-                  <div key={item.product.id} className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm truncate">{item.product.name}</div>
-                      <div className="text-xs text-muted-foreground">${item.product.price.toFixed(2)}</div>
+                  <div key={item.product.id} className="space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm leading-tight truncate">{item.product.name}</div>
+                        <div className="text-xs text-muted-foreground font-mono">${item.product.price.toFixed(2)}/ea</div>
+                      </div>
+                      <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateQty(item.product.id, -1)}><Minus className="h-3 w-3" /></Button>
+                        <span className="text-sm font-mono w-5 text-center">{item.quantity}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateQty(item.product.id, 1)}><Plus className="h-3 w-3" /></Button>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono text-sm font-semibold w-14 text-right">
+                          ${(item.product.price * item.quantity - item.discount).toFixed(2)}
+                        </span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => removeItem(item.product.id)}><X className="h-3 w-3" /></Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 bg-muted rounded-md p-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.product.id, -1)}>
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="text-sm font-mono w-4 text-center">{item.quantity}</span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.product.id, 1)}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <div className="font-mono text-sm w-16 text-right font-semibold">
-                      ${(item.product.price * item.quantity).toFixed(2)}
+                    <div className="flex items-center gap-2 pl-1">
+                      <Tag className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Item disc:</span>
+                      <Input
+                        type="number" min={0} step={0.01}
+                        value={item.discount || ""}
+                        onChange={(e) => updateItemDiscount(item.product.id, parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        className="h-6 text-xs w-20 font-mono px-2"
+                      />
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </ScrollArea>
-          
-          <div className="border-t bg-card p-4 space-y-4">
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span className="font-mono">${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Tax (10%)</span>
-                <span className="font-mono">${tax.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-lg pt-2 border-t mt-2">
-                <span>Total</span>
-                <span className="font-mono text-primary">${total.toFixed(2)}</span>
+
+          {/* Totals */}
+          <div className="border-t px-4 pt-3 pb-2 space-y-1.5 shrink-0">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Subtotal</span>
+              <span className="font-mono">${itemsSubtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-muted-foreground flex items-center gap-1"><Tag className="h-3 w-3" /> Order discount</span>
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted-foreground">$</span>
+                <Input
+                  type="number" min={0} step={0.01}
+                  value={orderDiscount || ""}
+                  onChange={(e) => setOrderDiscount(parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                  className="h-6 text-xs w-20 font-mono px-2 text-right"
+                />
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="h-14 font-semibold">
-                <Banknote className="mr-2 h-5 w-5" /> Cash
-              </Button>
-              <Button variant="outline" className="h-14 font-semibold">
-                <CreditCard className="mr-2 h-5 w-5" /> Card
-              </Button>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>VAT ({(TAX_RATE * 100).toFixed(0)}%)</span>
+              <span className="font-mono">${taxAmount.toFixed(2)}</span>
             </div>
-            
-            <Button 
-              className="w-full h-14 text-lg font-bold" 
-              size="lg" 
-              onClick={handleCharge}
-              disabled={cart.length === 0 || createOrder.isPending}
-            >
-              {createOrder.isPending ? "Processing..." : `Charge $${total.toFixed(2)}`}
+            <div className="flex justify-between font-bold text-lg pt-2 border-t">
+              <span>Total</span>
+              <span className="font-mono text-primary">${total.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="px-4 pb-4 shrink-0">
+            <Button className="w-full h-12 text-base font-bold" onClick={handleOpenCheckout} disabled={cart.length === 0}>
+              Charge ${total.toFixed(2)}
             </Button>
           </div>
         </Card>
       </div>
-    </DashboardLayout>
-  );
-}
 
-function ShoppingCartIcon(props: React.ComponentProps<"svg">) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="8" cy="21" r="1" />
-      <circle cx="19" cy="21" r="1" />
-      <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
-    </svg>
+      {/* Checkout Dialog */}
+      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Complete Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* Order summary */}
+            <div className="rounded-lg bg-muted/50 p-3 space-y-1 text-sm">
+              <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span className="font-mono">${itemsSubtotal.toFixed(2)}</span></div>
+              {orderDiscount > 0 && <div className="flex justify-between text-muted-foreground"><span>Discount</span><span className="font-mono text-emerald-600">-${orderDiscount.toFixed(2)}</span></div>}
+              <div className="flex justify-between text-muted-foreground"><span>VAT ({(TAX_RATE * 100).toFixed(0)}%)</span><span className="font-mono">${taxAmount.toFixed(2)}</span></div>
+              <div className="flex justify-between font-bold text-base pt-1 border-t"><span>Total</span><span className="font-mono text-primary">${total.toFixed(2)}</span></div>
+            </div>
+
+            {/* Customer */}
+            {selectedCustomer && (
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Customer:</span>
+                <span className="font-medium">{selectedCustomer.name}</span>
+              </div>
+            )}
+
+            {/* Payment method */}
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_METHODS.map((pm) => (
+                  <Button
+                    key={pm.value}
+                    variant={paymentMethod === pm.value ? "default" : "outline"}
+                    className="h-10 gap-2"
+                    onClick={() => setPaymentMethod(pm.value as PaymentInputPaymentMethod)}
+                  >
+                    <pm.icon className="h-4 w-4" />
+                    {pm.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Received amount (cash only) */}
+            {paymentMethod === "cash" && (
+              <div className="space-y-2">
+                <Label>Amount Received ($)</Label>
+                <Input
+                  type="number" min={0} step={0.01}
+                  value={receivedAmount}
+                  onChange={(e) => setReceivedAmount(e.target.value)}
+                  className="font-mono text-lg h-12 text-right"
+                  autoFocus
+                />
+                <div className="flex justify-between items-center rounded-md bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2">
+                  <span className="text-sm font-medium">Change</span>
+                  <span className={`font-mono font-bold text-lg ${change < 0 ? "text-destructive" : "text-emerald-600"}`}>
+                    ${change.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCheckoutOpen(false)}>Cancel</Button>
+            <Button
+              className="flex-1"
+              onClick={handleCharge}
+              disabled={createOrder.isPending || completeOrder.isPending || (paymentMethod === "cash" && receivedNum < total)}
+            >
+              {createOrder.isPending || completeOrder.isPending ? "Processing…" : `Confirm $${total.toFixed(2)}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt Dialog */}
+      <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" /> Payment Successful
+            </DialogTitle>
+          </DialogHeader>
+          {completedOrder && (
+            <div className="space-y-3 text-sm font-mono">
+              <div className="text-center text-muted-foreground text-xs">{completedOrder.orderNumber}</div>
+              <div className="border-t border-dashed pt-3 space-y-1">
+                {completedOrder.items?.map((item: any) => (
+                  <div key={item.id} className="flex justify-between">
+                    <span className="truncate mr-2">{item.productName || `Item #${item.productId}`} x{item.quantity}</span>
+                    <span>${item.totalPrice?.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-dashed pt-3 space-y-1">
+                <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>${completedOrder.subtotal?.toFixed(2)}</span></div>
+                {completedOrder.discountAmount > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-${completedOrder.discountAmount?.toFixed(2)}</span></div>}
+                <div className="flex justify-between text-muted-foreground"><span>VAT</span><span>${completedOrder.taxAmount?.toFixed(2)}</span></div>
+                <div className="flex justify-between font-bold text-base border-t border-dashed pt-1"><span>TOTAL</span><span>${completedOrder.total?.toFixed(2)}</span></div>
+                {completedOrder.paymentMethod === "cash" && (
+                  <>
+                    <div className="flex justify-between"><span>Received</span><span>${completedOrder.amountPaid?.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-emerald-600"><span>Change</span><span>${completedOrder.change?.toFixed(2)}</span></div>
+                  </>
+                )}
+              </div>
+              <div className="text-center text-muted-foreground border-t border-dashed pt-2 text-xs">Thank you for your purchase!</div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setReceiptOpen(false)}>New Sale</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout>
   );
 }
